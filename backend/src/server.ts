@@ -11,14 +11,43 @@ dotenv.config();
 
 const app: Application = express();
 
-
-// Connect to MongoDB
-connectDB();
-
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Connect to MongoDB once
+let isConnected = false;
+const ensureDbConnection = async () => {
+  if (!isConnected) {
+    await connectDB();
+    isConnected = true;
+  }
+};
+
+// Middleware to ensure DB connection for each request
+app.use(async (req, res, next) => {
+  try {
+    await ensureDbConnection();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Ask Vanny API is running',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      users: '/api/users',
+      messages: '/api/messages'
+    }
+  });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -32,13 +61,5 @@ app.get('/api/health', (req, res) => {
 
 // Error handler
 app.use(errorHandler);
-
-// Start server
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
 
 export default app;
